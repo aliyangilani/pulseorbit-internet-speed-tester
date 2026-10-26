@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PulseOrbit — Internet Speed Test</title>
+  <meta name="description" content="Measure your real download, upload, ping and jitter in the browser with PulseOrbit, a free 3D internet speed tester.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#060a16">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <!-- Apply the saved / OS theme before first paint to avoid a flash. -->
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('pulseorbit-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      document.documentElement.dataset.theme = t;
+      if (location.protocol === 'file:') document.documentElement.classList.add('is-file');
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#test">Skip to speed test</a>
+
+  <div class="file-warning" role="alert">
+    This page uses ES modules, which browsers block on <code>file://</code>. Serve the folder over HTTP
+    (for example VS Code <strong>Live Server</strong> or <code>npx serve</code>) — see README.
+  </div>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#home" aria-label="PulseOrbit home">
+        <svg class="brand-logo" viewBox="0 0 40 40" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
+            </linearGradient>
+          </defs>
+          <circle cx="20" cy="20" r="6" fill="url(#lg)"/>
+          <ellipse cx="20" cy="20" rx="17" ry="7" fill="none" stroke="url(#lg)" stroke-width="2.2" transform="rotate(-28 20 20)"/>
+          <circle cx="34.5" cy="12.5" r="2.6" fill="var(--accent)"/>
+        </svg>
+        <span>Pulse<b>Orbit</b></span>
+      </a>
+
+      <nav id="nav" class="nav" aria-label="Primary">
+        <a href="#home">Home</a>
+        <a href="#test">Speed Test</a>
+        <a href="#about">About</a>
+        <a href="https://github.com/YOUR-USERNAME/internet-speed-tester" data-github target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="themeToggle" class="icon-btn theme-toggle" type="button" aria-label="Switch to light mode" aria-pressed="true">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.3M12 19.2v2.3M2.5 12h2.3M19.2 12h2.3M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>
+        </button>
+        <button id="menuBtn" class="icon-btn menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section id="home" class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot"></span> Real measurements · no fake numbers</p>
+        <h1>Discover Your <span class="grad">Internet Speed</span></h1>
+        <p class="lead">Test download, upload, ping and jitter straight from your browser. PulseOrbit moves real data over a public test network and shows you exactly what it measured.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary btn-xl" type="button" data-start>START TEST</button>
+          <a class="btn btn-ghost" href="#how">How it works</a>
+        </div>
+        <ul class="chips" aria-label="Measured values">
+          <li>Download</li><li>Upload</li><li>Ping</li><li>Jitter</li>
+        </ul>
+      </div>
+
+      <div class="stage" id="stage">
+        <!-- CSS-only fallback, hidden once WebGL is running -->
+        <div class="fallback-orb" aria-hidden="true"><i></i><i></i><i></i><b></b></div>
+        <div class="stage-hud" id="hud" aria-hidden="true">
+          <span class="hud-stage" id="hudStage">Ready</span>
+          <span class="hud-value"><span id="hudValue">0</span> <small id="hudUnit">Mbps</small></span>
+          <span class="hud-bar"><i id="hudBar"></i></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SPEED TEST -->
+    <section id="test" class="section wrap" aria-labelledby="test-title">
+      <div class="section-head">
+        <h2 id="test-title">Speed Test</h2>
+        <p id="provider-note">Measured against <span data-provider>Cloudflare Speed Test</span>. Results are estimates of the path between your browser and that server.</p>
+      </div>
+
+      <div class="test-grid">
+        <div class="card gauge-card" id="gaugeCard">
+          <div class="gauge-wrap" id="gaugeWrap">
+            <svg id="gauge" viewBox="0 0 300 300" role="img" aria-label="Speedometer, 0 to 1000 megabits per second">
+              <defs>
+                <linearGradient id="gArcGrad" x1="0" y1="1" x2="1" y2="0">
+                  <stop offset="0" class="stop-a"/><stop offset="1" class="stop-b"/>
+                </linearGradient>
+              </defs>
+              <circle class="g-disc" cx="150" cy="150" r="140"/>
+              <circle class="g-disc-ring" cx="150" cy="150" r="140"/>
+              <path class="g-track" d="M65.15 234.85A120 120 0 1 1 234.85 234.85" pathLength="100"/>
+              <path class="g-arc" d="M65.15 234.85A120 120 0 1 1 234.85 234.85" pathLength="100"/>
+              <g class="g-ticks"></g>
+              <g class="g-needle"><path d="M147.5 150 L150 52 L152.5 150Z"/><circle cx="150" cy="150" r="8"/><circle cx="150" cy="150" r="3" class="hub"/></g>
+            </svg>
+            <div class="gauge-readout" aria-hidden="true">
+              <span class="gauge-label" id="gaugeLabel">Ready</span>
+              <span class="gauge-value" id="gaugeValue">0</span>
+              <span class="gauge-unit" id="gaugeUnit">Mbps</span>
+            </div>
+          </div>
+
+          <ol class="stages" id="stages" aria-label="Test stages">
+            <li data-stage="ping"><span class="s-dot"></span>Ping</li>
+            <li data-stage="download"><span class="s-dot"></span>Download</li>
+            <li data-stage="upload"><span class="s-dot"></span>Upload</li>
+          </ol>
+
+          <div class="progress" role="progressbar" aria-label="Test progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress">
+            <i id="progressBar"></i>
+          </div>
+          <p class="status" id="status" role="status" aria-live="polite">Press start to begin.</p>
+          <p class="banner" id="banner" role="alert" hidden></p>
+
+          <div class="actions">
+            <button class="btn btn-primary" id="startBtn" type="button" data-start>START TEST</button>
+          </div>
+        </div>
+
+        <div class="results">
+          <article class="card metric" data-metric="download">
+            <header>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 19.5h16"/></svg>
+              <h3>Download</h3>
+            </header>
+            <p class="m-value"><span class="num" id="m-download">—</span><span class="unit">Mbps</span></p>
+            <p class="m-note" id="n-download">Not measured yet</p>
+          </article>
+          <article class="card metric" data-metric="upload">
+            <header>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5M4 19.5h16"/></svg>
+              <h3>Upload</h3>
+            </header>
+            <p class="m-value"><span class="num" id="m-upload">—</span><span class="unit">Mbps</span></p>
+            <p class="m-note" id="n-upload">Not measured yet</p>
+          </article>
+          <article class="card metric" data-metric="ping">
+            <header>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
+              <h3>Ping</h3>
+            </header>
+            <p class="m-value"><span class="num" id="m-ping">—</span><span class="unit">ms</span></p>
+            <p class="m-note" id="n-ping">Not measured yet</p>
+          </article>
+          <article class="card metric" data-metric="jitter">
+            <header>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12h3l2.2-6 3.6 12 3-9 1.8 3h5.4"/></svg>
+              <h3>Jitter</h3>
+            </header>
+            <p class="m-value"><span class="num" id="m-jitter">—</span><span class="unit">ms</span></p>
+            <p class="m-note" id="n-jitter">Not measured yet</p>
+          </article>
+
+          <div class="share-row">
+            <button class="btn btn-ghost" id="copyBtn" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              Copy results
+            </button>
+            <button class="btn btn-ghost" id="shareBtn" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6"/></svg>
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="history" class="section wrap" aria-labelledby="history-title">
+      <div class="section-head row">
+        <div>
+          <h2 id="history-title">Recent Tests</h2>
+          <p>Stored only in this browser (localStorage). Last 10 tests.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="clearBtn" type="button" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg>
+          Clear history
+        </button>
+      </div>
+      <div class="card history-card">
+        <p class="empty" id="historyEmpty">No tests yet. Run your first test above.</p>
+        <svg id="historyChart" class="history-chart" viewBox="0 0 320 90" preserveAspectRatio="none" role="img" aria-label="Download and upload speed of recent tests" hidden></svg>
+        <div class="table-wrap">
+          <table id="historyTable" hidden>
+            <thead><tr><th scope="col">When</th><th scope="col">Download</th><th scope="col">Upload</th><th scope="col">Ping</th><th scope="col">Jitter</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="section wrap" aria-labelledby="how-title">
+      <div class="section-head"><h2 id="how-title">How the Speed Test Works</h2></div>
+      <ol class="steps">
+        <li class="card"><span class="step-n">1</span><h3>Ping &amp; jitter</h3><p>20 tiny requests measure round-trip time. Ping is the median; jitter is the average change between consecutive samples.</p></li>
+        <li class="card"><span class="step-n">2</span><h3>Download</h3><p>Four parallel streams pull data for about 8 seconds. The first 1.5 s (TCP ramp-up) is excluded, then bytes ÷ time gives Mbps.</p></li>
+        <li class="card"><span class="step-n">3</span><h3>Upload</h3><p>Three parallel POST streams push data for about 7 seconds. Progress events count bytes sent; the warm-up is excluded too.</p></li>
+        <li class="card"><span class="step-n">4</span><h3>Result</h3><p>Everything shown is measured from real transfers. If a stage fails, it is marked unavailable, never guessed.</p></li>
+      </ol>
+    </section>
+
+    <!-- ABOUT + LIMITATIONS -->
+    <section id="about" class="section wrap" aria-labelledby="about-title">
+      <div class="two-col">
+        <div>
+          <h2 id="about-title">About PulseOrbit</h2>
+          <p>PulseOrbit is an open-source, static website: plain HTML, CSS and JavaScript with a Three.js scene. There is no backend, no account, no tracking and no API key. Your history never leaves your browser.</p>
+          <p>Test traffic goes to <span data-provider>Cloudflare Speed Test</span>. The endpoints are configurable in <code>js/config.js</code>, so you can point the tool at your own server.</p>
+        </div>
+        <div class="card limits">
+          <h3>Technical limitations</h3>
+          <ul>
+            <li>Browser tests are <strong>estimates</strong>: they reflect the path to one test server, not your whole ISP.</li>
+            <li>Wi-Fi quality, other devices, VPNs, extensions, and browser throttling can lower results.</li>
+            <li>Very fast links (multi-gigabit) may be limited by the browser or server before the network.</li>
+            <li>Upload is counted by browser progress events, which can slightly overstate results on very slow links because of send buffers.</li>
+            <li>GitHub Pages cannot host an upload endpoint, so upload relies on an external, CORS-enabled service.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section wrap" aria-labelledby="faq-title">
+      <div class="section-head"><h2 id="faq-title">Frequently Asked Questions</h2></div>
+      <div class="faq">
+        <details><summary>Why is my result different from other speed tests?</summary><p>Each service uses a different server, number of connections and averaging method. Results vary by a few percent to a lot depending on distance to the server and current congestion.</p></details>
+        <details><summary>What is jitter?</summary><p>Jitter is how much latency varies from one request to the next. Low jitter matters for video calls and gaming. PulseOrbit reports the mean absolute difference between consecutive ping samples.</p></details>
+        <details><summary>Is the data real?</summary><p>Yes. Nothing is simulated. If an endpoint is unreachable or blocked, the affected metric shows as unavailable with the reason.</p></details>
+        <details><summary>How much data does a test use?</summary><p>It depends on your speed, because tests run for a fixed time. A fast connection can transfer several hundred megabytes in total, so be careful on metered plans.</p></details>
+        <details><summary>Why is upload unavailable?</summary><p>Upload needs an endpoint that accepts POST requests and allows cross-origin access. If the configured one is unreachable or removed, the upload card says so. See the README to configure another.</p></details>
+        <details><summary>Does it store my data?</summary><p>Only your last 10 results and your theme choice, in this browser's localStorage. You can clear the history at any time.</p></details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>© 2026 PulseOrbit · MIT License · Browser-based estimates only.</p>
+      <p><a href="https://github.com/YOUR-USERNAME/internet-speed-tester" data-github target="_blank" rel="noopener noreferrer">GitHub repository</a> · <a href="#home">Back to top</a></p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <noscript><p class="banner" style="margin:1rem">JavaScript is required to run the speed test.</p></noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
